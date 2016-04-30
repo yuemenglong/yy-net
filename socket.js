@@ -1,6 +1,7 @@
 var util = require("util");
 var net = require("net");
 var Promise = require("bluebird");
+var socketProtoFn = require("./socket-proto-fn");
 var Buf = require("../yy-buf");
 
 var Exception = require("../lib/exception");
@@ -134,7 +135,7 @@ Socket.prototype.flush = function(data) {
         }
         var buffer = that._writeBuf.buffer();
         that._writeBuf.clear();
-        that.socket.setTimeout(that._timeout).write(buffer, function() {
+        that.socket.setTimeout(that._timeout).write(buffer, that._writeBuf.length(), function() {
             resolve();
         });
     }).finally(function() {
@@ -150,7 +151,7 @@ Socket.prototype.write = function(data) {
         return Promise.reject(new Exception(SOCKET_ERROR, "Write End Socket"));
     }
     var that = this;
-    if (data) {
+    if (data !== undefined) {
         this._writeBuf.write(data);
     }
     return this;
@@ -158,7 +159,9 @@ Socket.prototype.write = function(data) {
 
 Socket.prototype.read = function(n) {
     debug("[%d, %d] Call Read", this.socket.localPort, this.socket.remotePort);
-    n = n || 1;
+    if (n === undefined) {
+        n = 1;
+    }
     if (this._readBuf.length() >= n) {
         return Promise.resolve(this._readBuf.read(n));
     }
@@ -171,10 +174,9 @@ Socket.prototype.read = function(n) {
         that._data_handler = function(data) {
             if (that._readBuf.length() < n) {
                 that._data_handler = arguments.callee;
-                return;
+            } else {
+                resolve(that._readBuf.read(n));
             }
-            that._timeout_handler = null;
-            resolve(that._readBuf.read(n));
         }
         that._close_handler = function() {
             resolve(undefined);
@@ -209,6 +211,8 @@ Socket.prototype.close = function() {
     });
 }
 
+socketProtoFn(Socket.prototype);
+
 Socket.prototype.setTimeout = function(ms) {
     this._timeout = ms;
 }
@@ -226,9 +230,9 @@ if (require.main == module) {
     Promise.try(function() {
         return socket.connect("localhost", 12345);
     }).then(function() {
-        return socket.write("hello").write("world").flush("asdf");
+        return socket.write("a").writeInt8(0).flush();
     }).then(function() {
-        return socket.read(4);
+        return socket.readUntil(0);
     }).then(function(res) {
         console.log(res);
         return socket.read(1);
