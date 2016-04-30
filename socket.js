@@ -10,7 +10,8 @@ var SOCKET_ERROR = "SOCKET_ERROR";
 
 module.exports = Socket;
 
-var debug = console.log;
+// var debug = console.log;
+var debug = function() {}
 
 function Socket(socket) {
     var that = this;
@@ -95,9 +96,6 @@ Socket.prototype.connect = function(host, port) {
     }
     var that = this;
     return new Promise(function(resolve, reject) {
-        that.socket.setTimeout(that._timeout).connect({ host: host, port: port }, function() {
-            resolve();
-        });
         that._error_handler = function(err) {
             reject(err);
         }
@@ -105,6 +103,9 @@ Socket.prototype.connect = function(host, port) {
             reject(new Exception("SOCKET_TIMEOUT_ERROR",
                 "Connect Timeout", that._timeout));
         }
+        that.socket.setTimeout(that._timeout).connect({ host: host, port: port }, function() {
+            resolve();
+        });
     }).finally(function() {
         that._error_handler = null;
         that._timeout_handler = null;
@@ -121,11 +122,6 @@ Socket.prototype.flush = function(data) {
         this._writeBuf.write(data);
     }
     return new Promise(function(resolve, reject) {
-        var buffer = that._writeBuf.buffer();
-        that._writeBuf.clear();
-        that.socket.setTimeout(that._timeout).write(buffer, function() {
-            resolve();
-        });
         that._close_handler = function() {
             reject(new Exception(SOCKET_ERROR, "Socket Closed While Write"));
         }
@@ -136,6 +132,11 @@ Socket.prototype.flush = function(data) {
             reject(new Exception(SOCKET_TIMEOUT_ERROR,
                 "Write Timeout", that._timeout));
         }
+        var buffer = that._writeBuf.buffer();
+        that._writeBuf.clear();
+        that.socket.setTimeout(that._timeout).write(buffer, function() {
+            resolve();
+        });
     }).finally(function() {
         that._error_handler = null;
         that._timeout_handler = null;
@@ -157,14 +158,15 @@ Socket.prototype.write = function(data) {
 
 Socket.prototype.read = function(n) {
     debug("[%d, %d] Call Read", this.socket.localPort, this.socket.remotePort);
-    if (this._close) {
-        // return Promise.resolve(undefined);
-        return Promise.reject(new Exception(SOCKET_ERROR, "Read End Socket"));
-    }
-    var that = this;
+    n = n || 1;
     if (this._readBuf.length() >= n) {
         return Promise.resolve(this._readBuf.read(n));
     }
+    if (this._close) {
+        return Promise.resolve(undefined);
+        // return Promise.reject(new Exception(SOCKET_ERROR, "Read End Socket"));
+    }
+    var that = this;
     return new Promise(function(resolve, reject) {
         that._data_handler = function(data) {
             if (that._readBuf.length() < n) {
@@ -183,6 +185,7 @@ Socket.prototype.read = function(n) {
         that._timeout_handler = function() {
             reject(new Exception(SOCKET_TIMEOUT_ERROR, "Read Timeout"));
         }
+        that.socket.setTimeout(that._timeout);
     }).finally(function() {
         that._data_handler = null;
         that._close_handler = null;
@@ -199,10 +202,10 @@ Socket.prototype.close = function() {
     }
     var that = this;
     return new Promise(function(resolve, reject) {
-        that.socket.end();
         that._close_handler = function() {
             resolve();
         }
+        that.socket.end();
     });
 }
 

@@ -5,7 +5,8 @@ var Socket = require("./socket");
 var Queue = require("../yy-queue");
 var Exception = require("../lib/exception");
 
-var debug = console.log;
+//var debug = console.log;
+var debug = function() {}
 
 module.exports = Server;
 
@@ -27,8 +28,8 @@ function Server() {
     })
     this.server.on("error", function(err) {
         debug("[%d] Server On Error", port(that));
-        var handler = this._errorHandler;
-        this._errorHandler = null;
+        var handler = that._errorHandler;
+        that._errorHandler = null;
         if (handler) {
             handler(err);
         }
@@ -45,12 +46,12 @@ function Server() {
 Server.prototype.listen = function(port) {
     var that = this;
     return new Promise(function(resolve, reject) {
-        that.server.listen(port, function() {
-            resolve();
-        });
         that._errorHandler = function(err) {
             reject(err);
         }
+        that.server.listen(port, function() {
+            resolve();
+        });
     }).finally(function() {
         that._errorHandler = null;
     })
