@@ -39,11 +39,16 @@ function Server() {
     })
     this.server.on("close", function() {
         debug("[%d] Server On Close", port(that));
+        that._queue.resolve(undefined);
         that.server.removeAllListeners();
+        that.server = null;
     })
 }
 
 Server.prototype.listen = function(port) {
+    if (!this.server) {
+        Server.call(this);
+    }
     var that = this;
     return new Promise(function(resolve, reject) {
         that._errorHandler = function(err) {
