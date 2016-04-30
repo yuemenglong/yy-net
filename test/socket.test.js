@@ -1,4 +1,5 @@
 var should = require("should");
+var co = require("co");
 
 var Server = require("../server");
 var Socket = require("../socket");
@@ -12,30 +13,34 @@ function fail() {
 var echoServer = new Server();
 
 before(function() {
-    function accept(server) {
-        return server.accept().then(function(socket) {
-            echo(socket).catch().done();
-            return accept(server);
-        });
-    }
-
-    function echo(socket) {
-        return socket.read(1).then(function(res) {
-            if (res === undefined) {
-                return socket.close();
-            } else {
-                return socket.flush(res).catch(function(err) {
-
-                }).then(function() {
-                    return echo(socket);
-                });
+    co(function*() {
+        yield echoServer.listen(PORT);
+        while (true) {
+            var socket = yield echoServer.accept();
+            if (!socket) {
+                break;
             }
-        })
-    }
-
-    echoServer.listen(PORT).then(function() {
-        accept(echoServer).done();
-    }).done();
+            console.log("New Connection");
+            while (true) {
+                try {
+                    var b = yield socket.read();
+                    if (b === undefined) {
+                        break;
+                    }
+                    console.log(b);
+                    if (b.toString() === "q") {
+                        yield socket.close();
+                        break;
+                    }
+                    yield socket.flush(b);
+                } catch (err) {
+                    yield socket.close();
+                    break;
+                }
+            }
+            console.log("Connection Close");
+        }
+    });
 })
 
 after(function() {
@@ -95,11 +100,12 @@ describe('Socket', function() {
             return socket.close();
         }).then(function() {
             return socket.read();
-        }).then(function() {
-            fail();
-        }).catch(function(err) {
-            // logger.log(err);
+        }).then(function(res) {
+            should(res).eql(undefined);
             done();
+        }).catch(function(err) {
+            console.log(err);
+            fail();
         }).done();
     });
     it('Read While Close', function(done) {
@@ -128,17 +134,10 @@ describe('Socket', function() {
     it('Write While Close', function(done) {
         var socket = new Socket();
         socket.connect("localhost", PORT).then(function() {
-            socket.close().catch(function(err) {
-                // logger.log(err);
-            }).done();
-            return socket.flush("hello");
-        }).then(function() {
-            fail();
-        }).catch(function(err) {
-            // logger.error(err);
-            done();
-        }).done(function() {
 
+        }).done(function() {
+            socket.close();
+            done();
         });
     });
     it('Timeout', function(done) {
@@ -157,7 +156,30 @@ describe('Socket', function() {
             fail();
         }).catch(function(err) {
             err.name.should.eql("SOCKET_TIMEOUT_ERROR")
+            socket.close();
             done();
         }).done(function() {});
+    });
+    it('Local Close And Reconnect', function(done) {
+        var socket = new Socket();
+        socket.connect("localhost", PORT).then(function() {
+            return socket.writeInt32(0x12345678).flush();
+        }).then(function(res) {
+            return socket.readInt32();
+        }).then(function(res) {
+            res.should.eql(0x12345678);
+            return socket.close();
+        }).then(function(res) {
+            return socket.connect("localhost", PORT);
+        }).then(function(res) {
+            return socket.writeInt32(0x12345678).flush();
+        }).then(function(res) {
+            return socket.readInt32();
+        }).then(function(res) {
+            res.should.eql(0x12345678);
+            return socket.close();
+        }).done(function() {
+            done();
+        });
     });
 });

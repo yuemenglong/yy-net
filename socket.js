@@ -11,13 +11,24 @@ var SOCKET_ERROR = "SOCKET_ERROR";
 
 module.exports = Socket;
 
-// var debug = console.log;
-var debug = function() {}
-
 function Socket(socket) {
+    if (!socket) {
+        this._close = true;
+        return;
+    }
+    this.socket = socket;
+    this._close = false;
+    this._init_event();
+}
+
+Socket.prototype._init = function() {
+    this.socket = new net.Socket();
+    this._close = true;
+    this._init_event();
+}
+
+Socket.prototype._init_event = function() {
     var that = this;
-    this.socket = socket || new net.Socket();
-    this._close = socket === undefined;
     this._endian = this._endian || "BE";
     this._readBuf = new Buf(this._endian);
     this._writeBuf = new Buf(this._endian);
@@ -28,7 +39,6 @@ function Socket(socket) {
     this._close_handler = null;
 
     that.socket.on("error", function(err) {
-        debug("[%d, %d] On Error", that.socket.localPort, that.socket.remotePort);
         var handler = that._error_handler;
         that._error_handler = null;
         if (handler) {
@@ -37,7 +47,6 @@ function Socket(socket) {
     });
 
     that.socket.on("data", function(data) {
-        debug("[%d, %d] On Data", that.socket.localPort, that.socket.remotePort);
         that._readBuf.write(data);
         var handler = that._data_handler;
         that._data_handler = null;
@@ -46,22 +55,17 @@ function Socket(socket) {
         }
     });
 
-    that.socket.on("drain", function() {
-        debug("[%d, %d] On Drain", that.socket.localPort, that.socket.remotePort);
-    });
+    that.socket.on("drain", function() {});
 
-    that.socket.on("end", function() {
-        debug("[%d, %d] On End", that.socket.localPort, that.socket.remotePort);
-    });
+    that.socket.on("end", function() {});
 
     that.socket.on("connect", function() {
-        debug("[%d, %d] On Connect", that.socket.localPort, that.socket.remotePort);
         that._close = false;
     });
 
     that.socket.on("close", function() {
-        debug("[%d, %d] On Close", that.socket.localPort, that.socket.remotePort);
         that.socket.removeAllListeners();
+        that.socket = null;
         that._close = true;
         var handler = that._close_handler;
         that._close_handler = null;
@@ -71,7 +75,6 @@ function Socket(socket) {
     });
 
     that.socket.on("timeout", function() {
-        debug("[%d, %d] On Timeout", that.socket.localPort, that.socket.remotePort);
         var handler = that._timeout_handler;
         that._timeout_handler = null;
         if (handler) {
@@ -91,9 +94,8 @@ Socket.prototype.setEndian = function(endian) {
 }
 
 Socket.prototype.connect = function(host, port) {
-    debug("[%d, %d] Call Connect", this.socket.localPort, this.socket.remotePort);
     if (!this.socket) {
-        Socket.call(this);
+        this._init();
     }
     var that = this;
     return new Promise(function(resolve, reject) {
@@ -114,7 +116,6 @@ Socket.prototype.connect = function(host, port) {
 }
 
 Socket.prototype.flush = function(data) {
-    debug("[%d, %d] Call Flush", this.socket.localPort, this.socket.remotePort);
     if (this._close) {
         return Promise.reject(new Exception(SOCKET_ERROR, "Write End Socket"));
     }
@@ -135,7 +136,7 @@ Socket.prototype.flush = function(data) {
         }
         var buffer = that._writeBuf.buffer();
         that._writeBuf.clear();
-        that.socket.setTimeout(that._timeout).write(buffer, that._writeBuf.length(), function() {
+        that.socket.setTimeout(that._timeout).write(buffer, function() {
             resolve();
         });
     }).finally(function() {
@@ -146,9 +147,8 @@ Socket.prototype.flush = function(data) {
 }
 
 Socket.prototype.write = function(data) {
-    debug("[%d, %d] Call Write", this.socket.localPort, this.socket.remotePort);
     if (this._close) {
-        return Promise.reject(new Exception(SOCKET_ERROR, "Write End Socket"));
+        throw new Exception(SOCKET_ERROR, "Write End Socket");
     }
     var that = this;
     if (data !== undefined) {
@@ -158,7 +158,6 @@ Socket.prototype.write = function(data) {
 }
 
 Socket.prototype.read = function(n) {
-    debug("[%d, %d] Call Read", this.socket.localPort, this.socket.remotePort);
     if (n === undefined) {
         n = 1;
     }
@@ -197,9 +196,7 @@ Socket.prototype.read = function(n) {
 }
 
 Socket.prototype.close = function() {
-    debug("[%d, %d] Call Close", this.socket.localPort, this.socket.remotePort);
     if (this._close) {
-        debug("[%d, %d] Already Close", this.socket.localPort, this.socket.remotePort);
         return Promise.resolve();
     }
     var that = this;

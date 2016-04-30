@@ -5,9 +5,6 @@ var Socket = require("./socket");
 var Queue = require("../yy-queue");
 var Exception = require("../lib/exception");
 
-//var debug = console.log;
-var debug = function() {}
-
 module.exports = Server;
 
 function port(that) {
@@ -15,39 +12,39 @@ function port(that) {
         that.server.address().port : NaN;
 }
 
-function Server() {
+function Server() {}
+
+Server.prototype._init = function() {
     var that = this;
+    this._close = true;
     this._queue = new Queue();
     this.server = net.createServer(function(socket) {
         var ret = new Socket(socket);
         that._queue.push(ret);
     });
     this._errorHandler = null;
+    this.server.on("connection", function(socket) {})
     this.server.on("listening", function() {
-        debug("[%d] Server On Listening", port(that));
+        that._close = false;
     })
     this.server.on("error", function(err) {
-        debug("[%d] Server On Error", port(that));
         var handler = that._errorHandler;
         that._errorHandler = null;
         if (handler) {
             handler(err);
         }
     })
-    this.server.on("connection", function(socket) {
-        debug("[%d, %d] Server On Connection", socket.localPort, socket.remotePort);
-    })
     this.server.on("close", function() {
-        debug("[%d] Server On Close", port(that));
-        that._queue.resolve(undefined);
         that.server.removeAllListeners();
         that.server = null;
+        that._close = true;
+        that._queue.resolve(undefined);
     })
 }
 
 Server.prototype.listen = function(port) {
     if (!this.server) {
-        Server.call(this);
+        this._init();
     }
     var that = this;
     return new Promise(function(resolve, reject) {
@@ -63,6 +60,9 @@ Server.prototype.listen = function(port) {
 }
 
 Server.prototype.accept = function() {
+    if (this._close) {
+        return Promise.resolve(undefined);
+    }
     return this._queue.pop();
 }
 

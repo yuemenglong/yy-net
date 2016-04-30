@@ -1,5 +1,9 @@
 var Buf = require("../yy-buf");
+var Exception = require("../lib/Exception");
 var Promise = require("bluebird");
+
+var SOCKET_TIMEOUT_ERROR = "SOCKET_TIMEOUT_ERROR";
+var SOCKET_ERROR = "SOCKET_ERROR";
 
 function createReadFn(fnName, n) {
     return function() {
@@ -41,7 +45,7 @@ function createReadFn(fnName, n) {
 function createWriteFn(fnName, n) {
     return function(value) {
         if (this._close) {
-            return Promise.reject(new Exception(SOCKET_ERROR, "Write End Socket"));
+            throw new Exception(SOCKET_ERROR, "Write End Socket");
         }
         var that = this;
         if (value !== undefined) {
