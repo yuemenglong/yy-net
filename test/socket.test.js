@@ -134,8 +134,13 @@ describe('Socket', function() {
     it('Write While Close', function(done) {
         var socket = new Socket();
         socket.connect("localhost", PORT).then(function() {
-
-        }).done(function() {
+            return socket.write("q").flush();
+        }).then(function(res) {
+            return socket.read();
+        }).then(function(res) {
+            should(res).eql(undefined);
+            return socket.write("already close").flush();
+        }).catch(function(err) {
             socket.close();
             done();
         });
@@ -177,6 +182,32 @@ describe('Socket', function() {
             return socket.readInt32();
         }).then(function(res) {
             res.should.eql(0x12345678);
+            return socket.close();
+        }).done(function() {
+            done();
+        });
+    });
+    it('Line', function(done) {
+        var socket = new Socket();
+        socket.connect("localhost", PORT).then(function() {
+            return socket.writeLine("hello").flush();
+        }).then(function(res) {
+            return socket.readLine();
+        }).then(function(res) {
+            res.toString().should.eql("hello");
+            return socket.close();
+        }).done(function() {
+            done();
+        });
+    });
+    it('String', function(done) {
+        var socket = new Socket();
+        socket.connect("localhost", PORT).then(function() {
+            return socket.writeString("hello").flush();
+        }).then(function(res) {
+            return socket.readString();
+        }).then(function(res) {
+            res.toString().should.eql("hello");
             return socket.close();
         }).done(function() {
             done();

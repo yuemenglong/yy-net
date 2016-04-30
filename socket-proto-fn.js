@@ -123,6 +123,10 @@ function socketProtoFn(proto) {
         proto[fnName] = createWriteFn(fnName, length);
     }
     proto.readUntil = readUntil;
+    proto.readLine = readLine;
+    proto.writeLine = writeLine;
+    proto.readString = readString;
+    proto.writeString = writeString;
 }
 
 module.exports = socketProtoFn;
