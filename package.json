@@ -1,16 +1,38 @@
 {
   "name": "yy-net",
   "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
+  "description": "socket use stream buf and promise",
+  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "test": "mocha test"
   },
-  "author": "",
+  "author": "yuemenglong@126.com",
   "license": "ISC",
   "devDependencies": {
     "co": "^4.6.0",
     "should": "^8.3.1"
-  }
+  },
+  "dependencies": {
+    "bluebird": "^3.3.5",
+    "yy-buf": "^1.0.0",
+    "yy-channel": "^1.0.2",
+    "yy-exception": "^1.0.0"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuemenglong/yy-net.git"
+  },
+  "keywords": [
+    "net",
+    "nodejs",
+    "promise",
+    "stream"
+  ],
+  "bugs": {
+    "url": "https://github.com/yuemenglong/yy-net/issues"
+  },
+  "homepage": "https://github.com/yuemenglong/yy-net#readme"
 }

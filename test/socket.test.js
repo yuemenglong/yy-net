@@ -1,8 +1,8 @@
 var should = require("should");
 var co = require("co");
 
-var Server = require("../server");
-var Socket = require("../socket");
+var Server = require("..").Server;
+var Socket = require("..").Socket;
 
 var PORT = 8001;
 
